@@ -1,66 +1,69 @@
-<p align="center">
-<img width="300" src="assets/logo.png">
-</p>
+# nano-vllm-serve
 
-<p align="center">
-<a href="https://trendshift.io/repositories/15323" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15323" alt="GeeeekExplorer%2Fnano-vllm | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-</p>
+**Turning a 1.4K-line offline inference engine into an online LLM server, and fixing the scheduling stall that shows up once requests arrive while others are streaming.**
 
-# Nano-vLLM
+by **Chendi Li** ([@GodD001](https://github.com/GodD001)) · built on [nano-vLLM](https://github.com/GeeeekExplorer/nano-vllm) by Xingkai Yu (MIT)
 
-A lightweight vLLM implementation built from scratch.
+> 🚧 **Work in progress.** Status is in the table below. No performance numbers yet. Every number that appears here later will come from a script in this repo, with the raw JSON committed.
 
-## Key Features
+---
 
-* 🚀 **Fast offline inference** - Comparable inference speeds to vLLM
-* 📖 **Readable codebase** - Clean implementation in ~ 1,200 lines of Python code
-* ⚡ **Optimization Suite** - Prefix caching, Tensor Parallelism, Torch compilation, CUDA graph, etc.
+## The problem
 
-## Installation
+nano-vLLM is a clean, fast **offline** engine: you hand `generate()` all prompts up front and it runs until they finish. Its scheduler is strictly **prefill-first**. A step is either all-prefill or all-decode, and as long as any request is waiting to be prefilled, no running request gets a token.
+
+Offline that is fine. Online it is not: every new arrival, and every chunk of a long prompt, takes a whole step during which every user who is already streaming sees nothing. The trace below comes from this repo's test suite ([`test_prefill_first_stalls_running_decodes`](tests/test_scheduler_upstream.py)), with a 10-token step budget:
+
+```
+step 1  prefill  A[4 tokens]          A starts streaming
+step 2  prefill  B[10 of 20 tokens]   A gets nothing
+step 3  prefill  B[10 of 20 tokens]   A gets nothing
+step 4  decode   A                    A resumes
+```
+
+With long prompts arriving under load, those gaps become inter-token-latency spikes for everyone.
+
+## What I'm building
+
+| | upstream nano-vLLM | nano-vllm-serve |
+|---|---|---|
+| API | offline `LLM.generate()` | + OpenAI-compatible `/v1/completions` and `/v1/chat/completions`, SSE streaming |
+| Engine | synchronous loop | + `AsyncLLMEngine`: dedicated engine thread, per-request async token streams, cancellation, backpressure (429) |
+| Scheduling | prefill-first, prefill and decode never share a step | + **decode-first** mixed batches: every running request gets its token, and leftover budget goes to (chunked) prefill |
+| Sampling | temperature only | + greedy, top-k, top-p, stop tokens |
+| Observability | none | + Prometheus `/metrics`: TTFT / ITL / E2E histograms, KV usage, preemptions |
+| Evaluation | offline throughput | + online benchmark with `vllm bench serve`: both policies vs vLLM, latency percentiles vs request rate |
+
+The upstream policy stays the default (`--scheduler-policy prefill_first`) and must make **exactly** the same decisions as upstream. A golden trace test enforces that.
+
+## Status
+
+| Phase | | |
+|---|---|---|
+| 1 | Safety-net tests for upstream scheduler / block manager (CPU only) | ✅ done |
+| 0 | Upstream baseline on GPU | ⬜ |
+| 2 | Async engine, OpenAI-compatible server, metrics | ⬜ |
+| 3 | Decode-first mixed-batch scheduler | ⬜ |
+| 4 | Benchmarks vs upstream policy and vLLM | ⬜ |
+| 5 | Design doc | ⬜ |
+
+## Results
+
+TBD
+
+## Tests
+
+The scheduler and block-manager tests run on any machine, no GPU needed. They use the real `Scheduler` / `BlockManager` with a fake model runner:
 
 ```bash
-pip install git+https://github.com/GeeeekExplorer/nano-vllm.git
+pip install pytest xxhash numpy
+python -m pytest -q
 ```
 
-## Model Download
+- randomized block-manager operations with ref-count / free-list invariants checked after every step
+- randomized online workloads (arrivals, shared prefixes, chunked prefill, preemption), all requests must finish with every KV block returned
+- a golden trace of upstream's scheduling decisions, so any change that alters `prefill_first` fails loudly
 
-To download the model weights manually, use the following command:
-```bash
-huggingface-cli download --resume-download Qwen/Qwen3-0.6B \
-  --local-dir ~/huggingface/Qwen3-0.6B/ \
-  --local-dir-use-symlinks False
-```
+## Attribution
 
-## Quick Start
-
-See `example.py` for usage. The API mirrors vLLM's interface with minor differences in the `LLM.generate` method:
-```python
-from nanovllm import LLM, SamplingParams
-llm = LLM("/YOUR/MODEL/PATH", enforce_eager=True, tensor_parallel_size=1)
-sampling_params = SamplingParams(temperature=0.6, max_tokens=256)
-prompts = ["Hello, Nano-vLLM."]
-outputs = llm.generate(prompts, sampling_params)
-outputs[0]["text"]
-```
-
-## Benchmark
-
-See `bench.py` for benchmark.
-
-**Test Configuration:**
-- Hardware: RTX 4070 Laptop (8GB)
-- Model: Qwen3-0.6B
-- Total Requests: 256 sequences
-- Input Length: Randomly sampled between 100–1024 tokens
-- Output Length: Randomly sampled between 100–1024 tokens
-
-**Performance Results:**
-| Inference Engine | Output Tokens | Time (s) | Throughput (tokens/s) |
-|----------------|-------------|----------|-----------------------|
-| vLLM           | 133,966     | 98.37    | 1361.84               |
-| Nano-vLLM      | 133,966     | 93.41    | 1434.13               |
-
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=GeeeekExplorer/nano-vllm&type=Date)](https://www.star-history.com/#GeeeekExplorer/nano-vllm&Date)
+Everything up to commit [`bb823b3`](https://github.com/GeeeekExplorer/nano-vllm/commit/bb823b3) is upstream nano-vLLM by Xingkai Yu, with its git history kept intact. My work is the commits on top of it ([see the diff](https://github.com/GodD001/nano-vllm-serve/compare/bb823b3...main)). The upstream [`LICENSE`](LICENSE) (MIT) is unchanged, and the original README is preserved at [`docs/upstream-README.md`](docs/upstream-README.md).
