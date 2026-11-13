@@ -1,69 +1,70 @@
 # nano-vllm-serve
 
-**Turning a 1.4K-line offline inference engine into an online LLM server, and fixing the scheduling stall that shows up once requests arrive while others are streaming.**
+**Serving an LLM in production: an OpenAI-compatible streaming server and a latency-focused batch scheduler, built on nano-vLLM.**
 
-by **Chendi Li** ([@GodD001](https://github.com/GodD001)) · built on [nano-vLLM](https://github.com/GeeeekExplorer/nano-vllm) by Xingkai Yu (MIT)
+by **Chendi Li** ([@GodD001](https://github.com/GodD001)) · built on **[nano-vLLM](https://github.com/GeeeekExplorer/nano-vllm) by Xingkai Yu (MIT)**. Upstream history is kept up to [`bb823b3`](https://github.com/GeeeekExplorer/nano-vllm/commit/bb823b3); my work is the commits on top ([diff](https://github.com/GodD001/nano-vllm-serve/compare/bb823b3...main)).
 
-> 🚧 **Work in progress.** Status is in the table below. No performance numbers yet. Every number that appears here later will come from a script in this repo, with the raw JSON committed.
+## What I built
 
----
+nano-vLLM can only run offline batches. I turned it into an online LLM server and fixed the main latency problem that appears once users stream concurrently.
 
-## The problem
-
-nano-vLLM is a clean, fast **offline** engine: you hand `generate()` all prompts up front and it runs until they finish. Its scheduler is strictly **prefill-first**. A step is either all-prefill or all-decode, and as long as any request is waiting to be prefilled, no running request gets a token.
-
-Offline that is fine. Online it is not: every new arrival, and every chunk of a long prompt, takes a whole step during which every user who is already streaming sees nothing. The trace below comes from this repo's test suite ([`test_prefill_first_stalls_running_decodes`](tests/test_scheduler_upstream.py)), with a 10-token step budget:
-
-```
-step 1  prefill  A[4 tokens]          A starts streaming
-step 2  prefill  B[10 of 20 tokens]   A gets nothing
-step 3  prefill  B[10 of 20 tokens]   A gets nothing
-step 4  decode   A                    A resumes
-```
-
-With long prompts arriving under load, those gaps become inter-token-latency spikes for everyone.
-
-## What I'm building
-
-| | upstream nano-vLLM | nano-vllm-serve |
+| | upstream nano-vLLM | this repo |
 |---|---|---|
-| API | offline `LLM.generate()` | + OpenAI-compatible `/v1/completions` and `/v1/chat/completions`, SSE streaming |
-| Engine | synchronous loop | + `AsyncLLMEngine`: dedicated engine thread, per-request async token streams, cancellation, backpressure (429) |
-| Scheduling | prefill-first, prefill and decode never share a step | + **decode-first** mixed batches: every running request gets its token, and leftover budget goes to (chunked) prefill |
-| Sampling | temperature only | + greedy, top-k, top-p, stop tokens |
-| Observability | none | + Prometheus `/metrics`: TTFT / ITL / E2E histograms, KV usage, preemptions |
-| Evaluation | offline throughput | + online benchmark with `vllm bench serve`: both policies vs vLLM, latency percentiles vs request rate |
+| Serving | offline `generate()` | OpenAI-compatible API (`/v1/chat/completions`, streaming), async engine, cancellation, 429 backpressure, Prometheus metrics |
+| Scheduling | new prompts pause every streaming user | **decode-first mixed batching**: streaming users keep getting tokens while new prompts are processed in the same GPU step |
+| Validation | offline throughput script | ~700 tests; model-output equivalence checks on GPU; load tests vs. vLLM |
 
-The upstream policy stays the default (`--scheduler-policy prefill_first`) and must make **exactly** the same decisions as upstream. A golden trace test enforces that.
+**The problem.** LLM inference has two phases: *prefill* (read the prompt) and *decode* (one token per step per user). The original scheduler runs a new prompt's prefill as its own step, so everyone already streaming stalls — users see the text freeze.
 
-## Status
-
-| Phase | | |
-|---|---|---|
-| 1 | Safety-net tests for upstream scheduler / block manager (CPU only) | ✅ done |
-| 0 | Upstream baseline on GPU | ⬜ |
-| 2 | Async engine, OpenAI-compatible server, metrics | ⬜ |
-| 3 | Decode-first mixed-batch scheduler | ⬜ |
-| 4 | Benchmarks vs upstream policy and vLLM | ⬜ |
-| 5 | Design doc | ⬜ |
+![scheduling timeline](docs/images/scheduling_timeline.png)
 
 ## Results
 
-TBD
+RTX A6000, Qwen3-0.6B, same KV-cache budget for every system, `vllm bench serve`, 500 requests per point.
 
-## Tests
+- **Tail latency:** decode-first cuts **p99 inter-token latency by 17–51%** (short prompts) and **14–21%** (mix with long prompts) vs. the original scheduler below saturation, and **p99 time-to-first-token by up to 57%** near saturation. Same direction on Qwen3-1.7B.
+- **Trade-off, measured:** mixed GPU steps can't use CUDA graphs, so typical (p90) latency rises at moderate load and throughput drops up to 16% on one heavy workload. A config knob trades first-token latency for smoother streaming.
+- **Serving overhead:** profiling (py-spy) showed Python GIL contention; fixes cut online overhead vs. offline batch inference from **42% to 7%**.
+- **Correctness:** the new scheduler changes model logits only within bf16 noise; greedy outputs differ only at near-ties (≤ 1 bf16 ulp).
+- **vs. vLLM:** vLLM is still ahead (about 2× lower p99 inter-token latency at most load points, up to 25% more throughput) — likely CUDA graphs for mixed steps and finer-grained KV blocks, which are the next steps here.
 
-The scheduler and block-manager tests run on any machine, no GPU needed. They use the real `Scheduler` / `BlockManager` with a fake model runner:
+Full tables, plots and how each number was measured: [`docs/results.md`](docs/results.md). Design: [`docs/design.md`](docs/design.md).
 
-```bash
-pip install pytest xxhash numpy
-python -m pytest -q
+## Architecture
+
+```mermaid
+flowchart LR
+    client["client<br/>(OpenAI SDK, curl)"] -->|HTTP / SSE| api["FastAPI<br/>OpenAI API"]
+    api --> eng["AsyncLLMEngine<br/>queue · 429 · cancel · metrics"]
+    eng -->|"add / abort"| sched
+    subgraph gpu["engine thread (owns the GPU)"]
+        sched["Scheduler<br/>decode-first"] --> kv["paged KV cache"] --> model["model runner<br/>CUDA graphs + FlashAttention"]
+    end
+    model -->|"tokens, once per step"| eng
+    eng -->|"one chunk per token"| api
 ```
 
-- randomized block-manager operations with ref-count / free-list invariants checked after every step
-- randomized online workloads (arrivals, shared prefixes, chunked prefill, preemption), all requests must finish with every KV block returned
-- a golden trace of upstream's scheduling decisions, so any change that alters `prefill_first` fails loudly
+## Quickstart
 
-## Attribution
+```bash
+pip install -e .   # Linux + NVIDIA GPU; flash-attn must match your torch/CUDA
+huggingface-cli download Qwen/Qwen3-0.6B --local-dir ~/huggingface/Qwen3-0.6B
+python -m nanovllm.serve --model ~/huggingface/Qwen3-0.6B --port 8000 --scheduler-policy decode_first
+```
 
-Everything up to commit [`bb823b3`](https://github.com/GeeeekExplorer/nano-vllm/commit/bb823b3) is upstream nano-vLLM by Xingkai Yu, with its git history kept intact. My work is the commits on top of it ([see the diff](https://github.com/GodD001/nano-vllm-serve/compare/bb823b3...main)). The upstream [`LICENSE`](LICENSE) (MIT) is unchanged, and the original README is preserved at [`docs/upstream-README.md`](docs/upstream-README.md).
+```python
+from openai import OpenAI
+client = OpenAI(base_url="http://localhost:8000/v1", api_key="unused")
+print(client.chat.completions.create(model="Qwen3-0.6B", max_tokens=64,
+      messages=[{"role": "user", "content": "Hello!"}]).choices[0].message.content)
+```
+
+Tests (CPU only): `pip install -e ".[test]" && pytest -q`. Reproduce the benchmarks: `bash benchmarks/run_all.sh` (see [`docs/results.md`](docs/results.md)).
+
+## Limitations
+
+Single GPU for the new scheduler · Qwen3 models only · results are from small models on one GPU (one run per point), not a general claim about vLLM.
+
+## License
+
+MIT. Upstream copyright © Xingkai Yu; see [`LICENSE`](LICENSE).
