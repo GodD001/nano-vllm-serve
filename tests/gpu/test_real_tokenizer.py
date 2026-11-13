@@ -52,3 +52,14 @@ def test_stop_string_with_real_tokenizer(tok):
         if d.stopped:
             break
     assert d.stopped and "".join(out) == "答案是：42。"
+
+
+def test_fast_path_matches_transformers_decode(tok):
+    """The Rust decode_batch fast path must equal transformers' batch_decode with
+    clean-up disabled, including special tokens and partial characters."""
+    from nanovllm.engine.detokenizer import batch_decode
+    ids = tok.encode("<think>\n推理 🎉 done</think>\n答案。<|im_end|>")
+    windows = [ids[i:i + 6] for i in range(len(ids))] + [ids]
+    for skip in (True, False):
+        assert batch_decode(tok, windows, skip) == tok.batch_decode(
+            windows, skip_special_tokens=skip, clean_up_tokenization_spaces=False)

@@ -1,0 +1,141 @@
+{
+  "description": "Phase 2d: offline LLM.generate() vs online server + vllm bench serve (rate inf), same workload",
+  "timestamp_utc": "2026-11-13T05:48:04+00:00",
+  "workload": {
+    "num_prompts": 256,
+    "input_len": 512,
+    "output_len": 256,
+    "ignore_eos": true,
+    "temperature": 1.0
+  },
+  "server_cmd": "/root/.venv/bin/python -m nanovllm.serve --model /workspace/hf-models/Qwen3-0.6B --port 8000 --served-model-name Qwen3-0.6B --scheduler-policy prefill_first --max-waiting-requests 1024",
+  "bench_cmd": "/root/.venv-vllm/bin/vllm bench serve --backend openai --base-url http://127.0.0.1:8000 --endpoint /v1/completions --model Qwen3-0.6B --tokenizer /workspace/hf-models/Qwen3-0.6B --save-result --result-dir benchmarks/results/raw --result-filename 02_overhead_bench_run0.json --disable-tqdm --dataset-name random --random-input-len 512 --random-output-len 256 --random-range-ratio 0.0 --num-prompts 256 --request-rate inf --ignore-eos --seed 0 --num-warmups 16",
+  "repo_commit": "0e5ed17",
+  "summary": {
+    "offline_output_tok_s_mean": 5696.781001282521,
+    "online_output_tok_s_mean": 5298.29760439866,
+    "overhead_pct": 6.994887056289334,
+    "offline_runs_tok_s": [
+      5690.67861071729,
+      5702.883391847752
+    ],
+    "online_runs_tok_s": [
+      5187.247027147313,
+      5409.348181650008
+    ]
+  },
+  "offline": [
+    {
+      "num_prompts": 256,
+      "input_len": 512,
+      "output_len": 256,
+      "duration_s": 11.516376953106374,
+      "total_output_tokens": 65536,
+      "output_throughput_tok_s": 5690.67861071729,
+      "request_throughput_req_s": 22.229213323114415,
+      "num_kvcache_blocks": 1390
+    },
+    {
+      "num_prompts": 256,
+      "input_len": 512,
+      "output_len": 256,
+      "duration_s": 11.491730673238635,
+      "total_output_tokens": 65536,
+      "output_throughput_tok_s": 5702.883391847752,
+      "request_throughput_req_s": 22.276888249405282,
+      "num_kvcache_blocks": 1390
+    }
+  ],
+  "online": [
+    {
+      "date": "20261113-054737",
+      "endpoint_type": "openai",
+      "backend": "openai",
+      "label": null,
+      "model_id": "Qwen3-0.6B",
+      "tokenizer_id": "/workspace/hf-models/Qwen3-0.6B",
+      "num_prompts": 256,
+      "request_rate": "inf",
+      "burstiness": 1.0,
+      "max_concurrency": null,
+      "duration": 12.634061893913895,
+      "completed": 256,
+      "failed": 0,
+      "total_input_tokens": 131072,
+      "total_output_tokens": 65536,
+      "request_throughput": 20.26268369979419,
+      "request_goodput": null,
+      "output_throughput": 5187.247027147313,
+      "total_token_throughput": 15561.741081441938,
+      "max_output_tokens_per_s": 7027.0,
+      "max_concurrent_requests": 256,
+      "rtfx": 0.0,
+      "mean_ttft_ms": 1241.9486218677775,
+      "median_ttft_ms": 1279.038295848295,
+      "std_ttft_ms": 429.9108256327114,
+      "p99_ttft_ms": 1914.507689443417,
+      "mean_tpot_ms": 44.38859002985541,
+      "median_tpot_ms": 44.283166483921164,
+      "std_tpot_ms": 1.5740248861090729,
+      "p99_tpot_ms": 47.5946742014996,
+      "mean_itl_ms": 44.38859002985541,
+      "median_itl_ms": 41.61320719867945,
+      "std_itl_ms": 49.01486504708175,
+      "p99_itl_ms": 55.637626005336635,
+      "_command": "/root/.venv-vllm/bin/vllm bench serve --backend openai --base-url http://127.0.0.1:8000 --endpoint /v1/completions --model Qwen3-0.6B --tokenizer /workspace/hf-models/Qwen3-0.6B --save-result --result-dir benchmarks/results/raw --result-filename 02_overhead_bench_run0.json --disable-tqdm --dataset-name random --random-input-len 512 --random-output-len 256 --random-range-ratio 0.0 --num-prompts 256 --request-rate inf --ignore-eos --seed 0 --num-warmups 16"
+    },
+    {
+      "date": "20261113-054802",
+      "endpoint_type": "openai",
+      "backend": "openai",
+      "label": null,
+      "model_id": "Qwen3-0.6B",
+      "tokenizer_id": "/workspace/hf-models/Qwen3-0.6B",
+      "num_prompts": 256,
+      "request_rate": "inf",
+      "burstiness": 1.0,
+      "max_concurrency": null,
+      "duration": 12.115322918631136,
+      "completed": 256,
+      "failed": 0,
+      "total_input_tokens": 131072,
+      "total_output_tokens": 65536,
+      "request_throughput": 21.130266334570344,
+      "request_goodput": null,
+      "output_throughput": 5409.348181650008,
+      "total_token_throughput": 16228.044544950022,
+      "max_output_tokens_per_s": 6912.0,
+      "max_concurrent_requests": 256,
+      "rtfx": 0.0,
+      "mean_ttft_ms": 1235.7376536729134,
+      "median_ttft_ms": 1197.535456623882,
+      "std_ttft_ms": 98.79739295887781,
+      "p99_ttft_ms": 1399.4740932714194,
+      "mean_tpot_ms": 42.418852778577914,
+      "median_tpot_ms": 42.55033083734851,
+      "std_tpot_ms": 0.36287176810407,
+      "p99_tpot_ms": 42.602664374600295,
+      "mean_itl_ms": 42.418852778577914,
+      "median_itl_ms": 41.28809249959886,
+      "std_itl_ms": 14.339785203005995,
+      "p99_itl_ms": 58.96039582323282,
+      "_command": "/root/.venv-vllm/bin/vllm bench serve --backend openai --base-url http://127.0.0.1:8000 --endpoint /v1/completions --model Qwen3-0.6B --tokenizer /workspace/hf-models/Qwen3-0.6B --save-result --result-dir benchmarks/results/raw --result-filename 02_overhead_bench_run1.json --disable-tqdm --dataset-name random --random-input-len 512 --random-output-len 256 --random-range-ratio 0.0 --num-prompts 256 --request-rate inf --ignore-eos --seed 0 --num-warmups 16"
+    }
+  ],
+  "server_metrics_delta": [
+    {
+      "nanovllm_engine_steps_total{type=\"prefill\"}": 17.0,
+      "nanovllm_engine_steps_total{type=\"decode\"}": 513.0,
+      "nanovllm_step_duration_seconds_sum{type=\"prefill\"}": 3.691860610153526,
+      "nanovllm_step_duration_seconds_sum{type=\"decode\"}": 12.149014810565859,
+      "nanovllm_generation_tokens_total": 69632.0
+    },
+    {
+      "nanovllm_engine_steps_total{type=\"prefill\"}": 21.0,
+      "nanovllm_engine_steps_total{type=\"decode\"}": 510.0,
+      "nanovllm_step_duration_seconds_sum{type=\"prefill\"}": 1.534384508151561,
+      "nanovllm_step_duration_seconds_sum{type=\"decode\"}": 12.147912356071174,
+      "nanovllm_generation_tokens_total": 69632.0
+    }
+  ]
+}

@@ -57,6 +57,13 @@ def _dumps(obj: Any) -> str:
     return json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
 
 
+_json_str = json.JSONEncoder(ensure_ascii=False).encode   # string -> JSON string literal (C fast path)
+
+
+def _json_reason(reason: str | None) -> str:
+    return "null" if reason is None else '"' + reason + '"'
+
+
 def create_app(engine: AsyncLLMEngine, served_model_name: str, model_path: str | None = None,
                manage_engine: bool = True) -> FastAPI:
     """manage_engine: start/shutdown the engine in the app lifespan (False in tests that
@@ -182,8 +189,14 @@ def create_app(engine: AsyncLLMEngine, served_model_name: str, model_path: str |
     def usage(n_prompt: int, n_completion: int) -> dict:
         return {"prompt_tokens": n_prompt, "completion_tokens": n_completion, "total_tokens": n_prompt + n_completion}
 
-    async def sse(rid: str, make_chunk, include_usage: bool, base: dict, first_chunk: dict | None = None) -> AsyncIterator[str]:
+    async def sse(rid: str, make_choice, include_usage: bool, base: dict, first_chunk: dict | None = None) -> AsyncIterator[str]:
+        """make_choice(out) returns the choice object already serialized as JSON. The fixed
+        part of every chunk (id, object, created, model, usage) is serialized once here, so
+        per token only the new text is JSON-escaped (json.dumps per chunk showed up in the
+        event loop's profile)."""
         n_prompt = n_completion = 0
+        head = "data: " + _dumps(base)[:-1] + ',"choices":['
+        tail = ("]," + '"usage":null}\n\n') if include_usage else "]}\n\n"
         try:
             try:
                 if first_chunk is not None:
@@ -191,10 +204,7 @@ def create_app(engine: AsyncLLMEngine, served_model_name: str, model_path: str |
                 async with contextlib.aclosing(engine.stream(rid)) as stream:
                     async for out in stream:
                         n_prompt, n_completion = out.num_prompt_tokens, out.num_completion_tokens
-                        chunk = {**base, "choices": [make_chunk(out)]}
-                        if include_usage:
-                            chunk["usage"] = None
-                        yield f"data: {_dumps(chunk)}\n\n"
+                        yield head + make_choice(out) + tail
                 if include_usage:
                     yield f"data: {_dumps({**base, 'choices': [], 'usage': usage(n_prompt, n_completion)})}\n\n"
             except RequestFailedError as e:
@@ -249,10 +259,11 @@ def create_app(engine: AsyncLLMEngine, served_model_name: str, model_path: str |
         base = {"id": f"cmpl-{uuid.uuid4().hex}", "object": "text_completion", "created": int(time.time()),
                 "model": served_model_name}
         if req.stream:
-            def make_chunk(out):
-                return {"index": 0, "text": out.text, "logprobs": None, "finish_reason": out.finish_reason}
+            def make_choice(out):
+                return ('{"index":0,"text":' + _json_str(out.text) + ',"logprobs":null,"finish_reason":'
+                        + _json_reason(out.finish_reason) + "}")
             include_usage = bool(req.stream_options and req.stream_options.include_usage)
-            return streaming_response(rid, sse(rid, make_chunk, include_usage, base))
+            return streaming_response(rid, sse(rid, make_choice, include_usage, base))
         text, n, reason, n_prompt = await collect(request, rid)
         return {**base, "choices": [{"index": 0, "text": text, "logprobs": None, "finish_reason": reason}],
                 "usage": usage(n_prompt, n)}
@@ -270,15 +281,15 @@ def create_app(engine: AsyncLLMEngine, served_model_name: str, model_path: str |
         base = {"id": f"chatcmpl-{uuid.uuid4().hex}", "object": "chat.completion.chunk", "created": int(time.time()),
                 "model": served_model_name}
         if req.stream:
-            def make_chunk(out):
-                delta = {"content": out.text} if out.token_ids or out.text else {}
-                return {"index": 0, "delta": delta, "logprobs": None, "finish_reason": out.finish_reason}
+            def make_choice(out):
+                delta = '{"content":' + _json_str(out.text) + "}" if out.token_ids or out.text else "{}"
+                return '{"index":0,"delta":' + delta + ',"logprobs":null,"finish_reason":' + _json_reason(out.finish_reason) + "}"
             first = {**base, "choices": [{"index": 0, "delta": {"role": "assistant", "content": ""},
                                           "logprobs": None, "finish_reason": None}]}
             include_usage = bool(req.stream_options and req.stream_options.include_usage)
             if include_usage:
                 first["usage"] = None
-            return streaming_response(rid, sse(rid, make_chunk, include_usage, base, first))
+            return streaming_response(rid, sse(rid, make_choice, include_usage, base, first))
         text, n, reason, n_prompt = await collect(request, rid)
         return {**base, "object": "chat.completion",
                 "choices": [{"index": 0, "message": {"role": "assistant", "content": text},

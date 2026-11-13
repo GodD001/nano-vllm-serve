@@ -1,0 +1,78 @@
+$ curl -s -o /dev/null -w "%{http_code}\n" localhost:8000/health
+200
+
+$ curl -s localhost:8000/v1/models
+{"object":"list","data":[{"id":"Qwen3-0.6B","object":"model","created":1794548696,"owned_by":"nano-vllm-serve","root":"/workspace/hf-models/Qwen3-0.6B","parent":null,"max_model_len":4096}]}
+
+$ curl -s localhost:8000/v1/completions -d {"prompt":"The capital of France is","max_tokens":12,"temperature":0}
+{"id":"cmpl-48ca0e19f5b245afa3e5ae2d0ba68365","object":"text_completion","created":1794548714,"model":"Qwen3-0.6B","choices":[{"index":0,"text":" Paris. The capital of Italy is Rome. The capital of","logprobs":null,"finish_reason":"length"}],"usage":{"prompt_tokens":5,"completion_tokens":12,"total_tokens":17}}
+
+$ curl -sN localhost:8000/v1/completions -d {"prompt":"用中文说你好，然后加一个emoji：","max_tokens":10,"temperature":0,"stream":true,"stream_options":{"include_usage":true}}
+data: {"id":"cmpl-f42cc04a1fb54bdd843e3d736625856f","object":"text_completion","created":1794548715,"model":"Qwen3-0.6B","choices":[{"index":0,"text":"😊","logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"cmpl-f42cc04a1fb54bdd843e3d736625856f","object":"text_completion","created":1794548715,"model":"Qwen3-0.6B","choices":[{"index":0,"text":"\n","logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"cmpl-f42cc04a1fb54bdd843e3d736625856f","object":"text_completion","created":1794548715,"model":"Qwen3-0.6B","choices":[{"index":0,"text":"好的","logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"cmpl-f42cc04a1fb54bdd843e3d736625856f","object":"text_completion","created":1794548715,"model":"Qwen3-0.6B","choices":[{"index":0,"text":"，","logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"cmpl-f42cc04a1fb54bdd843e3d736625856f","object":"text_completion","created":1794548715,"model":"Qwen3-0.6B","choices":[{"index":0,"text":"用户","logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"cmpl-f42cc04a1fb54bdd843e3d736625856f","object":"text_completion","created":1794548715,"model":"Qwen3-0.6B","choices":[{"index":0,"text":"让我","logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"cmpl-f42cc04a1fb54bdd843e3d736625856f","object":"text_completion","created":1794548715,"model":"Qwen3-0.6B","choices":[{"index":0,"text":"用","logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"cmpl-f42cc04a1fb54bdd843e3d736625856f","object":"text_completion","created":1794548715,"model":"Qwen3-0.6B","choices":[{"index":0,"text":"中文","logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"cmpl-f42cc04a1fb54bdd843e3d736625856f","object":"text_completion","created":1794548715,"model":"Qwen3-0.6B","choices":[{"index":0,"text":"说","logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"cmpl-f42cc04a1fb54bdd843e3d736625856f","object":"text_completion","created":1794548715,"model":"Qwen3-0.6B","choices":[{"index":0,"text":"“","logprobs":null,"finish_reason":"length"}],"usage":null}
+
+data: {"id":"cmpl-f42cc04a1fb54bdd843e3d736625856f","object":"text_completion","created":1794548715,"model":"Qwen3-0.6B","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}
+
+data: [DONE]
+
+
+$ curl -s localhost:8000/v1/chat/completions -d {"messages":[{"role":"user","content":"Say hi in 5 words."}],"max_tokens":40,"temperature":0}
+{"id":"chatcmpl-827e2cc533c44c41b68804415b74ec74","object":"chat.completion","created":1794548715,"model":"Qwen3-0.6B","choices":[{"index":0,"message":{"role":"assistant","content":"Hello! How can I assist you today?"},"logprobs":null,"finish_reason":"stop"}],"usage":{"prompt_tokens":19,"completion_tokens":10,"total_tokens":29}}
+
+$ curl -s -w "%{http_code}\n" localhost:8000/v1/completions -d {"prompt":"x","n":2}
+{"error":{"message":"only n=1 is supported","type":"invalid_request_error","param":null,"code":400}}400
+
+$ python benchmarks/openai_client_demo.py
+== models.list()
+['Qwen3-0.6B']
+
+== completions.create (non-streaming, greedy)
+' Paris. The capital of Italy is Rome. The capital of Spain is Madrid.' length CompletionUsage(completion_tokens=16, prompt_tokens=5, total_tokens=21, completion_tokens_details=None, prompt_tokens_details=None)
+
+== completions.create (streaming, include_usage)
+' 1, 2, 3, 4, 5\n\nThe number of letters in the word "five' | token chunks: 24 | finish: length | CompletionUsage(completion_tokens=24, prompt_tokens=6, total_tokens=30, completion_tokens_details=None, prompt_tokens_details=None)
+
+== chat.completions.create (non-streaming)
+'我是AI助手，专注于帮助用户解决问题和提供支持。' stop CompletionUsage(completion_tokens=13, prompt_tokens=18, total_tokens=31, completion_tokens_details=None, prompt_tokens_details=None)
+
+== chat.completions.create (streaming, include_usage, stop string)
+'1. Apple  \n2. Banana  \n' | finish: stop | CompletionUsage(completion_tokens=10, prompt_tokens=20, total_tokens=30, completion_tokens_details=None, prompt_tokens_details=None)
+
+$ curl -s localhost:8000/metrics | grep -E "^nanovllm_(engine_steps|kv_cache|preemptions|prefix_cache|requests_finished|generation_tokens|time_to_first_token_seconds_(count|sum)|inter_token_latency_seconds_(count|sum))"
+nanovllm_kv_cache_blocks_used 0.0
+nanovllm_kv_cache_blocks_total 1390.0
+nanovllm_engine_steps_total{type="prefill"} 46.0
+nanovllm_engine_steps_total{type="decode"} 3412.0
+nanovllm_engine_steps_created{type="prefill"} 1.794548715504426e+09
+nanovllm_engine_steps_created{type="decode"} 1.7945487155090566e+09
+nanovllm_prefix_cache_hit_blocks_total 0.0
+nanovllm_prefix_cache_hit_blocks_created 1.7945486966040294e+09
+nanovllm_preemptions_total 0.0
+nanovllm_preemptions_created 1.7945486966040373e+09
+nanovllm_requests_finished_total{reason="length"} 44.0
+nanovllm_requests_finished_total{reason="stop"} 3.0
+nanovllm_requests_finished_created{reason="length"} 1.7945487155441482e+09
+nanovllm_requests_finished_created{reason="stop"} 1.7945487157169018e+09
+nanovllm_generation_tokens_total 5215.0
+nanovllm_generation_tokens_created 1.7945486966040733e+09
+nanovllm_time_to_first_token_seconds_count 47.0
+nanovllm_time_to_first_token_seconds_sum 3.312874450813979
+nanovllm_inter_token_latency_seconds_count 5168.0
+nanovllm_inter_token_latency_seconds_sum 21.577667593490332

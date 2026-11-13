@@ -3,9 +3,23 @@
 All observations happen on the asyncio thread, once per engine step (plus per-request
 events), so the engine thread never touches the registry.
 """
+import bisect
 from dataclasses import dataclass
 
 from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, generate_latest
+
+
+def observe_many(hist: Histogram, value: float, count: int):
+    """Equivalent to `count` calls of hist.observe(value), in O(1).
+
+    In a decode step every running request gets its token at the same time, so most
+    inter-token latencies in a step share one value; recording them per token was a
+    measurable share of the event loop's time. Uses prometheus_client's Histogram
+    internals (_sum, _buckets, _upper_bounds); tests/test_metrics.py pins the equivalence."""
+    if count <= 0:
+        return
+    hist._sum.inc(value * count)
+    hist._buckets[bisect.bisect_left(hist._upper_bounds, value)].inc(count)
 
 # Latency buckets (seconds): fine resolution at the low end for inter-token latency.
 _LATENCY_BUCKETS = (0.001, 0.0025, 0.005, 0.0075, 0.01, 0.015, 0.02, 0.03, 0.04, 0.05, 0.075, 0.1,

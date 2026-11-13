@@ -28,7 +28,7 @@ from time import perf_counter
 from typing import AsyncIterator, Callable
 
 from nanovllm.engine.detokenizer import IncrementalDetokenizer, detokenize_step
-from nanovllm.metrics import EngineSnapshot, ServerMetrics
+from nanovllm.metrics import EngineSnapshot, ServerMetrics, observe_many
 from nanovllm.sampling_params import SamplingParams
 
 logger = logging.getLogger(__name__)
@@ -297,6 +297,7 @@ class AsyncLLMEngine:
                                                       if not self._is_stop_token(req, tok, fin, reason)]))
         t = result.end_time
         m.generation_tokens.inc(len(live))
+        itl_groups: dict[float, int] = {}   # requests decoded together share their previous token time
         for req, tok, engine_finished, reason in live:
             text = "" if self._is_stop_token(req, tok, engine_finished, reason) else next(texts)
             req.num_completion_tokens += 1
@@ -304,7 +305,7 @@ class AsyncLLMEngine:
                 req.first_token_time = t
                 m.ttft.observe(t - req.arrival_time)
             else:
-                m.itl.observe(t - req.last_token_time)
+                itl_groups[req.last_token_time] = itl_groups.get(req.last_token_time, 0) + 1
             req.last_token_time = t
             if self.record_token_times:
                 req.token_times.append(t)
@@ -325,6 +326,8 @@ class AsyncLLMEngine:
                 m.e2e.observe(t - req.arrival_time)
             req.queue.put_nowait(RequestOutput(req.request_id, text, [tok], finished, reason if finished else None,
                                                len(req.prompt_token_ids), req.num_completion_tokens))
+        for prev_t, count in itl_groups.items():
+            observe_many(m.itl, t - prev_t, count)
 
     def _on_engine_dead(self, exc: BaseException):
         self._dead = exc

@@ -108,3 +108,32 @@ def test_one_batch_decode_per_step():
     dets = [IncrementalDetokenizer(tok.encode("p")) for _ in range(10)]
     detokenize_step(tok, [(d, ord("a")) for d in dets])
     assert tok.calls == 1
+
+
+def test_fast_path_uses_rust_backend_and_matches():
+    """With a HF fast tokenizer, decoding goes through `_tokenizer.decode_batch` (no
+    transformers wrapper); results must match the slow path."""
+    from nanovllm.engine.detokenizer import batch_decode
+
+    class Backend:
+        def __init__(self):
+            self.calls = 0
+
+        def decode_batch(self, seqs, skip_special_tokens=True):
+            self.calls += 1
+            return ByteTokenizer().batch_decode(seqs, skip_special_tokens)
+
+    class FastTok(ByteTokenizer):
+        def __init__(self):
+            self._tokenizer = Backend()
+
+        def batch_decode(self, *a, **k):
+            raise AssertionError("slow path used")
+
+    fast, slow = FastTok(), ByteTokenizer()
+    seqs = [list("你好".encode()), list(b"abc") + [256], list("🎉".encode())[:2]]
+    assert batch_decode(fast, seqs) == batch_decode(slow, seqs)
+    assert fast._tokenizer.calls == 1
+    text = "流式 🎉 ok"
+    d1, deltas = stream(fast, "p", fast.encode(text))
+    assert "".join(deltas) == text

@@ -1,0 +1,171 @@
+{
+  "description": "greedy (temperature=0, ignore_eos) same prompt alone (batch 1) vs in a batch of 32",
+  "timestamp_utc": "2026-11-13T05:44:52+00:00",
+  "max_tokens": 128,
+  "num_prompts": 32,
+  "identical_sequences": 10,
+  "token_agreement_before_first_divergence": 0.580078125,
+  "alone_rerun_identical_of_8": 8,
+  "per_prompt": [
+    {
+      "prompt": "Explain how a hash map works.",
+      "first_divergence": 38,
+      "identical": false
+    },
+    {
+      "prompt": "Write a haiku about autumn.",
+      "first_divergence": null,
+      "identical": true
+    },
+    {
+      "prompt": "What is 17 * 23?",
+      "first_divergence": 72,
+      "identical": false
+    },
+    {
+      "prompt": "List three uses of graph algorithms.",
+      "first_divergence": 27,
+      "identical": false
+    },
+    {
+      "prompt": "用三句话介绍一下长城。",
+      "first_divergence": 23,
+      "identical": false
+    },
+    {
+      "prompt": "Translate 'good morning' into French and German.",
+      "first_divergence": 27,
+      "identical": false
+    },
+    {
+      "prompt": "Summarize the plot of Romeo and Juliet in two sentences.",
+      "first_divergence": 8,
+      "identical": false
+    },
+    {
+      "prompt": "Why is the sky blue?",
+      "first_divergence": 76,
+      "identical": false
+    },
+    {
+      "prompt": "Give me a Python function that reverses a string.",
+      "first_divergence": null,
+      "identical": true
+    },
+    {
+      "prompt": "What causes inflation?",
+      "first_divergence": 4,
+      "identical": false
+    },
+    {
+      "prompt": "Describe the water cycle.",
+      "first_divergence": 88,
+      "identical": false
+    },
+    {
+      "prompt": "写一首关于大海的短诗。",
+      "first_divergence": 40,
+      "identical": false
+    },
+    {
+      "prompt": "What are the SOLID principles?",
+      "first_divergence": null,
+      "identical": true
+    },
+    {
+      "prompt": "How does TCP congestion control work?",
+      "first_divergence": null,
+      "identical": true
+    },
+    {
+      "prompt": "Name five prime numbers greater than 100.",
+      "first_divergence": 91,
+      "identical": false
+    },
+    {
+      "prompt": "What is the difference between a process and a thread?",
+      "first_divergence": null,
+      "identical": true
+    },
+    {
+      "prompt": "Tell me a fun fact about octopuses. 🐙",
+      "first_divergence": null,
+      "identical": true
+    },
+    {
+      "prompt": "Explain gradient descent to a beginner.",
+      "first_divergence": null,
+      "identical": true
+    },
+    {
+      "prompt": "What is a Merkle tree?",
+      "first_divergence": 25,
+      "identical": false
+    },
+    {
+      "prompt": "How do vaccines work?",
+      "first_divergence": 45,
+      "identical": false
+    },
+    {
+      "prompt": "Compare SQL and NoSQL databases.",
+      "first_divergence": 47,
+      "identical": false
+    },
+    {
+      "prompt": "What is the capital of Australia and why?",
+      "first_divergence": 47,
+      "identical": false
+    },
+    {
+      "prompt": "Explain the Monty Hall problem.",
+      "first_divergence": 38,
+      "identical": false
+    },
+    {
+      "prompt": "Write a limerick about a cat.",
+      "first_divergence": 61,
+      "identical": false
+    },
+    {
+      "prompt": "解释一下什么是机器学习。",
+      "first_divergence": 29,
+      "identical": false
+    },
+    {
+      "prompt": "What does a load balancer do?",
+      "first_divergence": 37,
+      "identical": false
+    },
+    {
+      "prompt": "Describe photosynthesis briefly.",
+      "first_divergence": 127,
+      "identical": false
+    },
+    {
+      "prompt": "What is Big-O notation?",
+      "first_divergence": null,
+      "identical": true
+    },
+    {
+      "prompt": "How does a bloom filter work?",
+      "first_divergence": null,
+      "identical": true
+    },
+    {
+      "prompt": "Give three tips for writing clean code.",
+      "first_divergence": 39,
+      "identical": false
+    },
+    {
+      "prompt": "What is the Pythagorean theorem?",
+      "first_divergence": null,
+      "identical": true
+    },
+    {
+      "prompt": "Explain what an LLM KV cache is.",
+      "first_divergence": 107,
+      "identical": false
+    }
+  ]
+}

@@ -44,6 +44,9 @@ def main():
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--profile", action="store_true", help="py-spy record the server during the last online run")
     ap.add_argument("--tag", default="", help="suffix for output files (e.g. 'after')")
+    ap.add_argument("--server-arg", action="append", default=[],
+                    help="extra argument for nanovllm.serve (repeatable), e.g. --server-arg=--gil-switch-interval-ms=1")
+    ap.add_argument("--skip-offline", action="store_true", help="reuse no offline runs (online only)")
     ap.add_argument("--out-dir", default="benchmarks/results")
     args = ap.parse_args()
     tag = f"_{args.tag}" if args.tag else ""
@@ -51,14 +54,14 @@ def main():
     os.makedirs(raw_dir, exist_ok=True)
 
     offline = []
-    for i in range(args.runs):
+    for i in range(0 if args.skip_offline else args.runs):
         r = run_offline(args)
         offline.append(r)
         print(f"offline run {i}: {r['output_throughput_tok_s']:.1f} tok/s", flush=True)
 
     server_cmd = [sys.executable, "-m", "nanovllm.serve", "--model", args.model, "--port", str(args.port),
                   "--served-model-name", args.served_model_name, "--scheduler-policy", "prefill_first",
-                  "--max-waiting-requests", str(max(1024, args.num_prompts))]
+                  "--max-waiting-requests", str(max(1024, args.num_prompts)), *args.server_arg]
     proc = start_server(server_cmd, args.port, os.path.join(raw_dir, f"02_overhead_server{tag}.log"))
     online, metrics_delta = [], []
     try:
@@ -94,9 +97,9 @@ def main():
     off = [r["output_throughput_tok_s"] for r in offline]
     on = [r["output_throughput"] for r in online]
     summary = {
-        "offline_output_tok_s_mean": statistics.mean(off),
+        "offline_output_tok_s_mean": statistics.mean(off) if off else None,
         "online_output_tok_s_mean": statistics.mean(on),
-        "overhead_pct": 100 * (1 - statistics.mean(on) / statistics.mean(off)),
+        "overhead_pct": 100 * (1 - statistics.mean(on) / statistics.mean(off)) if off else None,
         "offline_runs_tok_s": off,
         "online_runs_tok_s": on,
     }

@@ -1,0 +1,44 @@
+{
+  "description": "upstream bench.py (256 seqs, input/output 100-1024 random tokens, Qwen3-0.6B), run unchanged",
+  "timestamp_utc": "2026-11-13T05:44:12+00:00",
+  "environment": {
+    "gpu": "NVIDIA RTX A6000, 46068 MiB, 595.91.07, 8.6",
+    "nvidia_smi_cuda": "CUDA Version: 13.2",
+    "cpu": "Intel(R) Xeon(R) Gold 6342 CPU @ 2.80GHz",
+    "python": "3.12.3",
+    "torch": "2.8.0+cu128",
+    "torch_cuda": "12.8",
+    "triton": "3.4.0",
+    "flash_attn": "2.8.3.post2",
+    "transformers": "5.22.2",
+    "upstream_commit": "bb823b3",
+    "repo_commit": "0e5ed17",
+    "bench_py_unmodified_vs_upstream": "false"
+  },
+  "runs": [
+    {
+      "run": 0,
+      "total_tokens": 133966,
+      "time_s": 30.81,
+      "throughput_tok_s": 4347.79
+    },
+    {
+      "run": 1,
+      "total_tokens": 133966,
+      "time_s": 30.92,
+      "throughput_tok_s": 4332.78
+    },
+    {
+      "run": 2,
+      "total_tokens": 133966,
+      "time_s": 30.97,
+      "throughput_tok_s": 4325.31
+    }
+  ],
+  "summary": {
+    "throughput_mean_tok_s": 4335.29,
+    "throughput_stdev_tok_s": 11.45,
+    "throughput_min_tok_s": 4325.31,
+    "throughput_max_tok_s": 4347.79
+  }
+}

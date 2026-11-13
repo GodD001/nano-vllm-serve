@@ -81,6 +81,22 @@ class IncrementalDetokenizer:
         return out
 
 
+def batch_decode(tokenizer, seqs: list[list[int]], skip_special_tokens: bool = True) -> list[str]:
+    """Decode many short id windows at once.
+
+    Fast path: the Rust `tokenizers` backend of a HF fast tokenizer (`_tokenizer.decode_batch`).
+    transformers' `batch_decode` wraps it with per-item Python work (to_py_obj, per-sequence
+    decode); profiling the server showed that wrapper as ~1/4 of the event loop's GIL time.
+    The backend never applies `clean_up_tokenization_spaces`, which the prefix/full diff needs
+    off anyway (" ." -> "." would break prefix stability). Fallback: transformers with
+    clean-up disabled explicitly."""
+    backend = getattr(tokenizer, "_tokenizer", None)
+    if backend is not None and hasattr(backend, "decode_batch"):
+        return backend.decode_batch(seqs, skip_special_tokens=skip_special_tokens)
+    return tokenizer.batch_decode(seqs, skip_special_tokens=skip_special_tokens,
+                                  clean_up_tokenization_spaces=False)
+
+
 def detokenize_step(tokenizer, items: list[tuple[IncrementalDetokenizer, int]],
                     skip_special_tokens: bool = True) -> list[str]:
     """Append one token to each detokenizer and return each one's emitted text delta.
@@ -93,9 +109,6 @@ def detokenize_step(tokenizer, items: list[tuple[IncrementalDetokenizer, int]],
         prefix, full = detok.windows()
         prefixes.append(prefix)
         fulls.append(full)
-    # The prefix/full diff needs prefix-stable decoding; whitespace clean-up (" ." -> ".")
-    # would break it, so it is disabled explicitly rather than relying on tokenizer defaults.
-    texts = tokenizer.batch_decode(prefixes + fulls, skip_special_tokens=skip_special_tokens,
-                                   clean_up_tokenization_spaces=False)
+    texts = batch_decode(tokenizer, prefixes + fulls, skip_special_tokens)
     n = len(items)
     return [detok.update(texts[i], texts[n + i]) for i, (detok, _) in enumerate(items)]
