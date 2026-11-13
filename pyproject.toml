@@ -25,6 +25,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest", "httpx", "openai", "numpy"]
+bench = ["matplotlib", "pandas"]
 
 [project.urls]
 Homepage="https://github.com/GeeeekExplorer/nano-vllm"

@@ -33,7 +33,7 @@ if [ ! -x /root/.venv/bin/python ]; then
   uv pip install -q --link-mode=copy --python /root/.venv/bin/python "$FLASH_ATTN_WHEEL"
 fi
 # Always (cheap when satisfied): picks up dependencies added to pyproject.toml since the last run.
-uv pip install -q --link-mode=copy --python /root/.venv/bin/python -e "$REPO[test]" "huggingface_hub[cli]" py-spy
+uv pip install -q --link-mode=copy --python /root/.venv/bin/python -e "$REPO[test,bench]" "huggingface_hub[cli]" py-spy
 
 # venv B: vLLM (pins its own torch, so it is kept separate)
 if [ ! -x /root/.venv-vllm/bin/python ]; then

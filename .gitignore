@@ -193,3 +193,5 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+# nano-vllm-serve: generated benchmark workloads (regenerate with benchmarks/make_workloads.py)
+benchmarks/workloads/*.jsonl
