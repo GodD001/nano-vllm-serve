@@ -96,8 +96,9 @@ def run_point(cfg, port, workload, rate, num_prompts, out_dir, name):
         r = vllm_bench_serve(port, cfg["served_model_name"], cfg["model"], out_dir, f"{name}.json",
                              bench_args(cfg, workload, rate, num_prompts), os.path.join(out_dir, f"{name}.log"))
     after = scrape_metrics(port)
+    # match on the metric name without labels: 'vllm:num_preemptions_total{engine="0"}' ends in '"}'
     counters = {k: after[k] - before.get(k, 0.0) for k in after
-                if k.endswith(("_total", "_sum", "_count")) and after[k] != before.get(k, 0.0)}
+                if k.split("{")[0].endswith(("_total", "_sum", "_count")) and after[k] != before.get(k, 0.0)}
     json.dump({"counters_delta": counters, "gauges": poller.summary()},
               open(os.path.join(out_dir, f"{name}.server_metrics.json"), "w"), indent=2)
     print(f"  {name}: {r['completed']} ok / {r['failed']} failed, {r['output_throughput']:.0f} out tok/s, "

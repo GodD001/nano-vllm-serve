@@ -70,6 +70,8 @@ def fmt(x, nd=1):
 
 def row(system, rate, b, s):
     preempt = counter(s, "nanovllm_preemptions_total", "vllm:num_preemptions_total")
+    if preempt is None and system.startswith(("A_", "B_")) and s.get("counters_delta"):
+        preempt = 0.0   # nano's counter is unlabeled and always recorded when it moves; absent = 0
     bs_sum = counter(s, "nanovllm_step_batch_size_sum")
     bs_cnt = counter(s, "nanovllm_step_batch_size_count")
     kv_max, _ = kv_util(s)
