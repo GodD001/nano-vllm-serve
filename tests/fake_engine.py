@@ -14,13 +14,16 @@ from nanovllm.engine.sequence import Sequence, SequenceStatus
 from nanovllm.sampling_params import SamplingParams
 
 
-def make_config(num_blocks=64, block_size=4, max_num_seqs=8, max_num_batched_tokens=32, eos=0):
+def make_config(num_blocks=64, block_size=4, max_num_seqs=8, max_num_batched_tokens=32, eos=0,
+                scheduler_policy="prefill_first", max_prefill_tokens_per_step=-1):
     return SimpleNamespace(
         num_kvcache_blocks=num_blocks,
         kvcache_block_size=block_size,
         max_num_seqs=max_num_seqs,
         max_num_batched_tokens=max_num_batched_tokens,
         eos=eos,
+        scheduler_policy=scheduler_policy,
+        max_prefill_tokens_per_step=max_prefill_tokens_per_step,
     )
 
 
@@ -88,11 +91,11 @@ class FakeEngine:
         bs = self.config.kvcache_block_size
         for seq in seqs:
             assert seq.num_scheduled_tokens >= 1
-            if is_prefill:
+            if is_prefill and seq.is_prefill:
                 end = seq.num_cached_tokens + seq.num_scheduled_tokens
                 assert end <= seq.num_tokens
                 assert len(seq.block_table) >= ceil_div(end, bs)
-            else:
+            else:   # decode, or a decode sequence inside a mixed (varlen) step
                 assert seq.num_scheduled_tokens == 1
                 assert seq.num_cached_tokens == seq.num_tokens - 1
                 assert len(seq.block_table) == ceil_div(seq.num_tokens, bs)

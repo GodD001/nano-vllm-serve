@@ -1,0 +1,85 @@
+{
+  "description": "logits of one mixed step vs upstream's separate decode + prefill steps (bf16)",
+  "timestamp_utc": "2026-11-13T05:56:48+00:00",
+  "gpu": "NVIDIA RTX A6000",
+  "decode_context_lens": [
+    25,
+    23,
+    106,
+    27
+  ],
+  "prefill_lens": [
+    22,
+    165
+  ],
+  "tolerance": {
+    "max_abs_diff": 0.625,
+    "rule": "<= 2x noise floor (bs4 vs bs1 decode), min 0.05; top-1 must agree unless top-2 margin < observed diff"
+  },
+  "results": {
+    "mixed_vs_separate_decode_rows": {
+      "max_abs_diff": 0.25,
+      "mean_abs_diff": 0.05063300579786301,
+      "top1_agree": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "top1_margin": [
+        1.125,
+        0.75,
+        7.5,
+        15.0
+      ],
+      "pass": true
+    },
+    "mixed_vs_separate_prefill_rows": {
+      "max_abs_diff": 0.375,
+      "mean_abs_diff": 0.030546974390745163,
+      "top1_agree": [
+        true,
+        true
+      ],
+      "top1_margin": [
+        9.875,
+        10.0
+      ],
+      "pass": true
+    },
+    "noise_floor_decode_batch4_vs_batch1": {
+      "max_abs_diff": 0.3125,
+      "mean_abs_diff": 0.04723632335662842,
+      "top1_agree": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "top1_margin": [
+        1.125,
+        0.75,
+        7.5,
+        15.0
+      ]
+    },
+    "decode_graph_vs_eager": {
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "top1_agree": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "top1_margin": [
+        1.125,
+        0.75,
+        7.5,
+        15.0
+      ]
+    },
+    "logit_abs_max": 36.0
+  },
+  "pass": true
+}

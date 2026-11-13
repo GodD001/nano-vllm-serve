@@ -1,0 +1,56 @@
+{
+  "description": "upstream bench.py workload under each scheduler policy (same seed and lengths)",
+  "timestamp_utc": "2026-11-13T05:58:31+00:00",
+  "repo_commit": "0e5ed17",
+  "policies": {
+    "prefill_first": {
+      "runs": [
+        {
+          "total_tokens": 133966,
+          "time_s": 30.746994972229004,
+          "throughput_tok_s": 4357.043676007995
+        },
+        {
+          "total_tokens": 133966,
+          "time_s": 30.83597707748413,
+          "throughput_tok_s": 4344.470735056407
+        },
+        {
+          "total_tokens": 133966,
+          "time_s": 30.819255828857422,
+          "throughput_tok_s": 4346.827864498979
+        }
+      ],
+      "mean_tok_s": 4349.447425187794,
+      "stdev_tok_s": 6.6832839753235715,
+      "vs_baseline_pct": 1.0488912294169372
+    },
+    "decode_first": {
+      "runs": [
+        {
+          "total_tokens": 133966,
+          "time_s": 30.935614347457886,
+          "throughput_tok_s": 4330.478085721565
+        },
+        {
+          "total_tokens": 133966,
+          "time_s": 31.097480058670044,
+          "throughput_tok_s": 4307.937483913588
+        },
+        {
+          "total_tokens": 133966,
+          "time_s": 31.087930917739868,
+          "throughput_tok_s": 4309.260733835274
+        }
+      ],
+      "mean_tok_s": 4315.892101156809,
+      "stdev_tok_s": 12.649148464670755,
+      "vs_baseline_pct": 0.2693144333993702
+    }
+  },
+  "baseline": {
+    "file": "benchmarks/results/00_upstream_offline.json",
+    "mean_tok_s": 4304.3,
+    "stdev_tok_s": 83.24
+  }
+}

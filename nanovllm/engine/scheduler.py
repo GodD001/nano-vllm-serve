@@ -16,6 +16,9 @@ class Scheduler:
         self.waiting: deque[Sequence] = deque()
         self.running: deque[Sequence] = deque()
         self.num_preemptions = 0  # cumulative, for metrics
+        self.policy = getattr(config, "scheduler_policy", "prefill_first")
+        cap = getattr(config, "max_prefill_tokens_per_step", -1)
+        self.max_prefill_tokens_per_step = cap if cap and cap > 0 else self.max_num_batched_tokens
 
     def is_finished(self):
         return not self.waiting and not self.running
@@ -24,6 +27,67 @@ class Scheduler:
         self.waiting.append(seq)
 
     def schedule(self) -> tuple[list[Sequence], bool]:
+        """Returns (seqs, has_prefill). Each seq's num_scheduled_tokens says how many tokens
+        it runs this step; a decode sequence has is_prefill == False and 1 token.
+        prefill_first steps are all-prefill or all-decode (upstream); decode_first steps may
+        mix both (has_prefill and some seqs with is_prefill == False)."""
+        if self.policy == "decode_first":
+            return self._schedule_decode_first()
+        return self._schedule_prefill_first()
+
+    def _schedule_decode_first(self) -> tuple[list[Sequence], bool]:
+        # 1. Every running sequence gets one decode token (upstream's append / preempt logic).
+        decode_seqs = []
+        preempted = False
+        while self.running and len(decode_seqs) < self.max_num_seqs:
+            seq = self.running.popleft()
+            while not self.block_manager.can_append(seq):
+                preempted = True
+                if self.running:
+                    self.preempt(self.running.pop())
+                else:
+                    self.preempt(seq)
+                    break
+            else:
+                seq.num_scheduled_tokens = 1
+                seq.is_prefill = False
+                self.block_manager.may_append(seq)
+                decode_seqs.append(seq)
+        self.running.extendleft(reversed(decode_seqs))
+
+        # 2. Fill the remaining budget with prefill, FCFS; only the first admitted sequence may
+        #    be chunked. Skip admission in a step that had to preempt (KV is exhausted; admitting
+        #    would just evict again), unless nothing is decoding (then it is a plain prefill step).
+        prefill_seqs = []
+        budget = min(self.max_num_batched_tokens - len(decode_seqs), self.max_prefill_tokens_per_step)
+        if not preempted or not decode_seqs:
+            while self.waiting and budget > 0 and len(decode_seqs) + len(prefill_seqs) < self.max_num_seqs:
+                seq = self.waiting[0]
+                if not seq.block_table:
+                    num_cached_blocks = self.block_manager.can_allocate(seq)
+                    if num_cached_blocks == -1:
+                        break
+                    num_tokens = seq.num_tokens - num_cached_blocks * self.block_size
+                else:
+                    num_tokens = seq.num_tokens - seq.num_cached_tokens
+                if budget < num_tokens and prefill_seqs:
+                    break
+                if not seq.block_table:
+                    self.block_manager.allocate(seq, num_cached_blocks)
+                seq.num_scheduled_tokens = min(num_tokens, budget)
+                budget -= seq.num_scheduled_tokens
+                if seq.num_cached_tokens + seq.num_scheduled_tokens == seq.num_tokens:
+                    seq.status = SequenceStatus.RUNNING
+                    self.waiting.popleft()
+                    self.running.append(seq)
+                prefill_seqs.append(seq)
+
+        seqs = decode_seqs + prefill_seqs
+        assert seqs
+        return seqs, bool(prefill_seqs)
+
+    def _schedule_prefill_first(self) -> tuple[list[Sequence], bool]:
+        # Upstream nano-vLLM policy, unchanged (tests/golden/prefill_first_trace.json pins it).
         scheduled_seqs = []
         num_batched_tokens = 0
 
@@ -78,7 +142,15 @@ class Scheduler:
         seq.status = SequenceStatus.WAITING
         seq.is_prefill = True
         self.block_manager.deallocate(seq)
-        self.waiting.appendleft(seq)
+        if self.waiting and self.waiting[0].block_table:
+            # decode_first only: the head of `waiting` is mid-chunked-prefill and holds KV blocks.
+            # Queueing the victim (which holds none) in front of it would block admission while
+            # those blocks stay pinned (deadlock once nothing is left running). Under
+            # prefill_first a mid-chunk head is always scheduled before any decode, so this
+            # branch never runs there and upstream behavior is unchanged.
+            self.waiting.insert(1, seq)
+        else:
+            self.waiting.appendleft(seq)
 
     def postprocess(self, seqs: list[Sequence], token_ids: list[int], is_prefill: bool) -> list[tuple[Sequence, int]]:
         """Apply one step's sampled tokens. Returns (seq, token_id) for every sequence that
@@ -88,7 +160,9 @@ class Scheduler:
             self.block_manager.hash_blocks(seq)
             seq.num_cached_tokens += seq.num_scheduled_tokens
             seq.num_scheduled_tokens = 0
-            if is_prefill and seq.num_cached_tokens < seq.num_tokens:
+            # Per-sequence: a partial prefill chunk yields no token. (Upstream also checked
+            # is_prefill, which is redundant: a decode always completes its sequence.)
+            if seq.num_cached_tokens < seq.num_tokens:
                 continue
             seq.append_token(token_id)
             outputs.append((seq, token_id))

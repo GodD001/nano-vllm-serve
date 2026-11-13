@@ -22,7 +22,7 @@ class TokenOutput:
 @dataclass(slots=True)
 class StepStats:
     """What the last step did (for metrics / progress bars)."""
-    kind: str                 # "prefill" | "decode"
+    kind: str                 # "prefill" | "decode" | "mixed" (decode_first only)
     num_seqs: int
     num_tokens: int           # tokens run through the model this step
     start_time: float         # perf_counter() before scheduling
@@ -89,11 +89,19 @@ class LLMEngine:
             if seq.first_scheduled_time is None:
                 seq.first_scheduled_time = start
                 newly_scheduled.append(seq.seq_id)
-        num_tokens = sum(seq.num_scheduled_tokens for seq in seqs) if is_prefill else len(seqs)
+        num_tokens = sum(seq.num_scheduled_tokens for seq in seqs)
+        if not is_prefill:
+            kind = "decode"      # decode-only: upstream decode path (CUDA graphs)
+        elif any(not seq.is_prefill for seq in seqs):
+            kind = "mixed"       # decode_first: decodes + prefill chunks, one varlen forward
+        else:
+            kind = "prefill"
+        # A mixed step runs through the prefill (varlen) path: each decode sequence is a
+        # 1-token chunk whose keys are its cached prefix, read through its block table.
         token_ids = self.model_runner.call("run", seqs, is_prefill)
         produced = self.scheduler.postprocess(seqs, token_ids, is_prefill)
         self.last_step = StepStats(
-            kind="prefill" if is_prefill else "decode",
+            kind=kind,
             num_seqs=len(seqs),
             num_tokens=num_tokens,
             start_time=start,

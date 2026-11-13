@@ -1,0 +1,39 @@
+{
+  "shapes": {
+    "num_q_heads": 16,
+    "num_kv_heads": 8,
+    "head_dim": 128,
+    "block_size": 256,
+    "dtype": "bfloat16"
+  },
+  "decode_context_lens": [
+    1,
+    37,
+    255,
+    256,
+    257,
+    511,
+    600,
+    1500
+  ],
+  "prefill_chunk": {
+    "cached": 300,
+    "new": 200
+  },
+  "max_abs_diff": {
+    "varlen_q1_vs_flash_decode": 0.001953125,
+    "varlen_q1_vs_torch_fp32": 0.002937018871307373,
+    "flash_decode_vs_torch_fp32": 0.002937018871307373,
+    "mixed_decode_rows_vs_flash_decode": 0.0009765625,
+    "mixed_prefill_rows_vs_prefill_alone": 0.0,
+    "mixed_prefill_rows_vs_torch_fp32": 0.0013381242752075195
+  },
+  "torch": "2.8.0+cu128",
+  "flash_attn": "2.8.3.post2",
+  "gpu": "NVIDIA RTX A6000",
+  "tolerance": {
+    "rule": "varlen/mixed error vs fp32 must be <= 2x the upstream decode kernel's (min 1e-2)",
+    "value": 0.02
+  },
+  "pass": true
+}

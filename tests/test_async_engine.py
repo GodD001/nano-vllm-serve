@@ -267,3 +267,23 @@ def test_stop_string_on_last_allowed_token_reports_stop():
         await wait_until(lambda: all_blocks_free(eng))
         await eng.shutdown()
     run(main())
+
+
+def test_decode_first_streams_complete_with_mixed_steps():
+    async def main():
+        eng = AsyncLLMEngine(lambda: FakeLLMEngine(FakeRunner(step_delay=0.001), num_blocks=128, max_num_seqs=8,
+                                                   max_num_batched_tokens=32, scheduler_policy="decode_first"))
+        await eng.start()
+
+        async def staggered(i, n):
+            await asyncio.sleep(0.003 * i)            # arrivals while others are decoding
+            return n, await collect(eng, list(b"prompt number %d" % i), SamplingParams(max_tokens=n))
+
+        results = await asyncio.gather(*[staggered(i, 5 + (i * 11) % 30) for i in range(24)])
+        for n, outs in results:
+            assert len(outs) == n and outs[-1].finish_reason == "length"
+            assert "".join(o.text for o in outs) == expected_text(n)
+        await wait_until(lambda: all_blocks_free(eng))
+        assert 'nanovllm_engine_steps_total{type="mixed"}' in eng.metrics.render().decode()
+        await eng.shutdown()
+    run(main())

@@ -80,10 +80,12 @@ class FakeRunner:
 class FakeLLMEngine(LLMEngine):
 
     def __init__(self, runner: FakeRunner | None = None, num_blocks: int = 64, block_size: int = 16,
-                 max_num_seqs: int = 16, max_num_batched_tokens: int = 256, max_model_len: int = 512):
+                 max_num_seqs: int = 16, max_num_batched_tokens: int = 256, max_model_len: int = 512,
+                 scheduler_policy: str = "prefill_first", max_prefill_tokens_per_step: int = -1):
         self.config = SimpleNamespace(
             num_kvcache_blocks=num_blocks, kvcache_block_size=block_size, max_num_seqs=max_num_seqs,
             max_num_batched_tokens=max_num_batched_tokens, max_model_len=max_model_len, eos=EOS,
+            scheduler_policy=scheduler_policy, max_prefill_tokens_per_step=max_prefill_tokens_per_step,
         )
         Sequence.block_size = block_size
         self.model_runner = runner or FakeRunner()

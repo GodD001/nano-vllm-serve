@@ -16,12 +16,26 @@ class Config:
     eos: int = -1
     kvcache_block_size: int = 256
     num_kvcache_blocks: int = -1
-    # nano-vllm-serve: "prefill_first" is upstream's policy (default); "decode_first" is Phase 3.
+    # --- nano-vllm-serve additions ---
+    # "prefill_first": upstream's policy (default). "decode_first": every running sequence
+    # decodes each step; leftover token budget goes to (chunked) prefill in the same step.
     scheduler_policy: str = "prefill_first"
+    # decode_first only: cap on prefill tokens riding along with a step (TTFT <-> ITL knob).
+    # -1 = max_num_batched_tokens.
+    max_prefill_tokens_per_step: int = -1
+    # Upper bound on KV-cache blocks (-1 = as many as gpu_memory_utilization allows). Lets
+    # benchmarks give every system the same KV capacity.
+    max_kvcache_blocks: int = -1
 
     def __post_init__(self):
-        if self.scheduler_policy != "prefill_first":
-            raise NotImplementedError(f"scheduler_policy={self.scheduler_policy!r} is not implemented yet")
+        if self.scheduler_policy not in ("prefill_first", "decode_first"):
+            raise ValueError(f"unknown scheduler_policy {self.scheduler_policy!r}")
+        if self.scheduler_policy == "decode_first" and self.tensor_parallel_size != 1:
+            # Mixed steps run decode sequences through the varlen path, which needs their
+            # token ids; Sequence.__getstate__ only ships the last token to TP workers.
+            raise ValueError("scheduler_policy='decode_first' requires tensor_parallel_size == 1")
+        if self.max_prefill_tokens_per_step <= 0:
+            self.max_prefill_tokens_per_step = self.max_num_batched_tokens
         assert os.path.isdir(self.model)
         assert self.kvcache_block_size % 256 == 0
         assert 1 <= self.tensor_parallel_size <= 8

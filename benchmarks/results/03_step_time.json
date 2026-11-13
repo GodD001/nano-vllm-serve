@@ -1,0 +1,73 @@
+{
+  "description": "median step wall time (ms) at decode batch size B; prompt_len 256; mixed = B decodes + one P-token prefill in one step; separate = P-token prefill step + B-decode step (prefill_first)",
+  "timestamp_utc": "2026-11-13T05:58:30+00:00",
+  "gpu": "NVIDIA RTX A6000",
+  "rows": [
+    {
+      "batch_size": 1,
+      "decode_graph_ms": 3.472193144261837,
+      "decode_eager_ms": 26.187601499259472,
+      "mixed_P64_ms": 26.92995290271938,
+      "separate_P64_ms": 30.466485768556595,
+      "mixed_P512_ms": 26.25369722954929,
+      "separate_P512_ms": 29.798484640195966,
+      "mixed_P2048_ms": 33.99422694928944,
+      "separate_P2048_ms": 36.764140939339995
+    },
+    {
+      "batch_size": 8,
+      "decode_graph_ms": 4.046229645609856,
+      "decode_eager_ms": 24.13208899088204,
+      "mixed_P64_ms": 26.291716611012816,
+      "separate_P64_ms": 30.27140093035996,
+      "mixed_P512_ms": 26.436532149091363,
+      "separate_P512_ms": 30.592378927394748,
+      "mixed_P2048_ms": 34.85344583168626,
+      "separate_P2048_ms": 37.43077185936272
+    },
+    {
+      "batch_size": 32,
+      "decode_graph_ms": 5.840628407895565,
+      "decode_eager_ms": 24.205390829592943,
+      "mixed_P64_ms": 26.541247498244047,
+      "separate_P64_ms": 32.26740122772753,
+      "mixed_P512_ms": 26.405198965221643,
+      "separate_P512_ms": 32.23967063240707,
+      "mixed_P2048_ms": 38.16307964734733,
+      "separate_P2048_ms": 39.48373254388571
+    },
+    {
+      "batch_size": 64,
+      "decode_graph_ms": 7.806166308000684,
+      "decode_eager_ms": 24.45369493216276,
+      "mixed_P64_ms": 26.97354252450168,
+      "separate_P64_ms": 34.279036335647106,
+      "mixed_P512_ms": 26.503430446609855,
+      "separate_P512_ms": 34.39970128238201,
+      "mixed_P2048_ms": 42.93489665724337,
+      "separate_P2048_ms": 41.50362452492118
+    },
+    {
+      "batch_size": 128,
+      "decode_graph_ms": 11.717945104464889,
+      "decode_eager_ms": 24.815893732011318,
+      "mixed_P64_ms": 27.264539385214448,
+      "separate_P64_ms": 38.74457627534866,
+      "mixed_P512_ms": 27.99417939968407,
+      "separate_P512_ms": 39.336479268968105,
+      "mixed_P2048_ms": 51.44055001437664,
+      "separate_P2048_ms": 46.44103767350316
+    },
+    {
+      "batch_size": 256,
+      "decode_graph_ms": 20.34813491627574,
+      "decode_eager_ms": 26.275556767359376,
+      "mixed_P64_ms": 37.52366220578551,
+      "separate_P64_ms": 48.01125405356288,
+      "mixed_P512_ms": 44.93692587129772,
+      "separate_P512_ms": 48.70300833135843,
+      "mixed_P2048_ms": 70.11872134171426,
+      "separate_P2048_ms": 56.566039100289345
+    }
+  ]
+}
