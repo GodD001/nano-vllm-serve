@@ -22,5 +22,17 @@
   "C_vllm/W2_mixed": {
     "request_throughput": 10.516975677034557,
     "output_throughput": 2692.3457733208465
+  },
+  "A_prefill_first/W3_shared_prefix": {
+    "request_throughput": 40.93277773692485,
+    "output_throughput": 5239.3955503263805
+  },
+  "B_decode_first/W3_shared_prefix": {
+    "request_throughput": 41.53194733513646,
+    "output_throughput": 5316.089258897467
+  },
+  "C_vllm/W3_shared_prefix": {
+    "request_throughput": 34.03218363905235,
+    "output_throughput": 4356.119505798701
   }
 }

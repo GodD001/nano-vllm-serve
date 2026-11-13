@@ -1,0 +1,14 @@
+{
+  "A_prefill_first/W2_mixed": {
+    "request_throughput": 6.388181938082625,
+    "output_throughput": 1635.374576149152
+  },
+  "B_decode_first/W2_mixed": {
+    "request_throughput": 6.392435854033037,
+    "output_throughput": 1636.4635786324575
+  },
+  "C_vllm/W2_mixed": {
+    "request_throughput": 6.98771484734794,
+    "output_throughput": 1788.8550009210726
+  }
+}

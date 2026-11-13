@@ -1,0 +1,24 @@
+{
+  "counters_delta": {
+    "process_cpu_seconds_total": 36.53,
+    "http_request_duration_highr_seconds_count": 500.0,
+    "http_request_duration_highr_seconds_sum": 2386.246933273971
+  },
+  "gauges": {
+    "vllm:num_requests_running{engine=\"0\",model_name=\"Qwen3-1.7B\"}": {
+      "max": 48.0,
+      "mean": 23.554347826086957,
+      "n": 92
+    },
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"Qwen3-1.7B\"}": {
+      "max": 1.0,
+      "mean": 0.5543903019182086,
+      "n": 92
+    },
+    "vllm:num_requests_waiting{engine=\"0\",model_name=\"Qwen3-1.7B\"}": {
+      "max": 15.0,
+      "mean": 1.2608695652173914,
+      "n": 92
+    }
+  }
+}

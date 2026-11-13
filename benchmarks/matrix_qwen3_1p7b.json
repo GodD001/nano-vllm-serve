@@ -53,7 +53,13 @@
     1.1
   ],
   "rates": {
-    "W2_mixed": null
+    "W2_mixed": [
+      1.7,
+      3.5,
+      5.2,
+      6.3,
+      7.7
+    ]
   },
   "results_dir": "benchmarks/results/raw/phase4_qwen3_1p7b"
 }

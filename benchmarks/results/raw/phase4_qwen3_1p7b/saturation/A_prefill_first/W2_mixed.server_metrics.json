@@ -1,0 +1,39 @@
+{
+  "counters_delta": {
+    "nanovllm_prefix_cache_hit_blocks_total": 100.0,
+    "nanovllm_preemptions_total": 65.0,
+    "nanovllm_requests_received_total": 300.0,
+    "nanovllm_prompt_tokens_total": 251081.0,
+    "nanovllm_generation_tokens_total": 76800.0,
+    "nanovllm_time_to_first_token_seconds_count": 300.0,
+    "nanovllm_time_to_first_token_seconds_sum": 6253.857113189995,
+    "nanovllm_inter_token_latency_seconds_count": 76500.0,
+    "nanovllm_inter_token_latency_seconds_sum": 1531.2575737102889,
+    "nanovllm_e2e_request_latency_seconds_count": 300.0,
+    "nanovllm_e2e_request_latency_seconds_sum": 7785.114686900284,
+    "nanovllm_request_queue_time_seconds_count": 300.0,
+    "nanovllm_request_queue_time_seconds_sum": 6115.8718591704965
+  },
+  "gauges": {
+    "nanovllm_kv_cache_blocks_used": {
+      "max": 160.0,
+      "mean": 101.50847457627118,
+      "n": 59
+    },
+    "nanovllm_requests_running": {
+      "max": 45.0,
+      "mean": 24.135593220338983,
+      "n": 59
+    },
+    "nanovllm_requests_waiting": {
+      "max": 270.0,
+      "mean": 103.33898305084746,
+      "n": 59
+    },
+    "nanovllm_kv_cache_blocks_total": {
+      "max": 160.0,
+      "mean": 160.0,
+      "n": 59
+    }
+  }
+}

@@ -96,7 +96,13 @@
       9,
       10.5
     ],
-    "W3_shared_prefix": null
+    "W3_shared_prefix": [
+      10.4,
+      20.8,
+      31.1,
+      37.4,
+      45.7
+    ]
   },
   "knob_sweep": {
     "system": "B_decode_first",
