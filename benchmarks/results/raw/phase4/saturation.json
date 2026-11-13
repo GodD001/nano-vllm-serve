@@ -1,0 +1,26 @@
+{
+  "A_prefill_first/W1_short": {
+    "request_throughput": 22.40184024335258,
+    "output_throughput": 5734.871102298261
+  },
+  "A_prefill_first/W2_mixed": {
+    "request_throughput": 9.577615365338286,
+    "output_throughput": 2451.869533526601
+  },
+  "B_decode_first/W1_short": {
+    "request_throughput": 22.826147055589214,
+    "output_throughput": 5843.493646230839
+  },
+  "B_decode_first/W2_mixed": {
+    "request_throughput": 9.21497408582759,
+    "output_throughput": 2359.033365971863
+  },
+  "C_vllm/W1_short": {
+    "request_throughput": 24.01202161315992,
+    "output_throughput": 6147.0775329689395
+  },
+  "C_vllm/W2_mixed": {
+    "request_throughput": 10.516975677034557,
+    "output_throughput": 2692.3457733208465
+  }
+}

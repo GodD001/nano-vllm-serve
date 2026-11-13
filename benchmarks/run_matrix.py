@@ -168,6 +168,20 @@ def run_knob(cfg):
         with_server(cfg, k["system"], ["--max-prefill-tokens-per-step", str(v)], f"server_knob_{v}.log", body)
 
 
+def set_rates(config_path, cfg, workloads):
+    sat = json.load(open(os.path.join(RAW, "saturation.json")))
+    for wname in workloads:
+        if cfg["rates"].get(wname):
+            print(f"{wname}: rates already set {cfg['rates'][wname]}")
+            continue
+        top = max(v["request_throughput"] for k, v in sat.items() if k.endswith("/" + wname))
+        cfg["rates"][wname] = [round(top * f, 1) for f in cfg["rate_fractions_of_saturation"]]
+        print(f"{wname}: max saturation {top:.2f} req/s -> rates {cfg['rates'][wname]}")
+    with open(config_path, "w") as f:
+        json.dump(cfg, f, indent=2)
+        f.write("\n")
+
+
 def plan(cfg, workloads, sat_estimate):
     """Commands and a runtime estimate (no GPU). Point time ~ num_prompts / min(rate, saturation)
     plus a drain tail; +90 s per server start; warmups counted."""
@@ -202,8 +216,13 @@ def main():
     mode.add_argument("--find-saturation", action="store_true")
     mode.add_argument("--run", action="store_true")
     mode.add_argument("--knob", action="store_true")
+    mode.add_argument("--set-rates", action="store_true",
+                      help="fill rates for --workloads that have none: max saturation across systems x "
+                           "rate_fractions_of_saturation (rule fixed before any latency result is seen)")
     args = ap.parse_args()
     cfg = load_cfg(args.config)
+    global RAW
+    RAW = os.path.join(ROOT, cfg.get("results_dir", "benchmarks/results/raw/phase4"))
     workloads = args.workloads.split(",") if args.workloads else \
         [w for w, spec in cfg["workloads"].items() if not spec.get("optional")]
     os.chdir(ROOT)
@@ -215,6 +234,8 @@ def main():
         find_saturation(cfg, workloads)
     elif args.run:
         run_matrix(cfg, workloads)
+    elif args.set_rates:
+        set_rates(args.config, cfg, workloads)
     else:
         run_knob(cfg)
 

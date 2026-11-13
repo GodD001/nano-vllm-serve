@@ -72,7 +72,7 @@ def test_report_end_to_end(tmp_path, monkeypatch):
     monkeypatch.setattr(report, "RAW", str(raw))
     monkeypatch.setattr(report, "OUT_MD", str(tmp_path / "summary.md"))
     monkeypatch.setattr(report, "IMG", str(tmp_path / "images"))
-    report.main()
+    report.main([])
     md = (tmp_path / "summary.md").read_text()
     assert "## W1_short" in md and "## W2_mixed" in md
     assert md.count("| A: nano prefill_first (upstream policy) |") == 3

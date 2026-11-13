@@ -1,0 +1,59 @@
+{
+  "_status": "APPROVED 2026-11-13 (Checkpoint 4a, optional part): repeat the headline W2 comparison with Qwen3-1.7B. Rates by --set-rates from this model's own saturation, same rule as W3.",
+  "model": "/workspace/hf-models/Qwen3-1.7B",
+  "served_model_name": "Qwen3-1.7B",
+  "port": 8000,
+  "max_model_len": 4096,
+  "kv_cache_tokens": 40960,
+  "_kv_cache_tokens": "Same 40,960-token KV budget as the 0.6B runs; Qwen3-1.7B has the same KV size per token (28 layers x 8 KV heads x 128 dims).",
+  "seed": 0,
+  "num_prompts": 500,
+  "warmup_prompts": 100,
+  "percentiles": "50,90,99",
+  "systems": {
+    "A_prefill_first": {
+      "kind": "nano",
+      "args": [
+        "--scheduler-policy",
+        "prefill_first"
+      ]
+    },
+    "B_decode_first": {
+      "kind": "nano",
+      "args": [
+        "--scheduler-policy",
+        "decode_first"
+      ]
+    },
+    "C_vllm": {
+      "kind": "vllm",
+      "args": []
+    }
+  },
+  "workloads": {
+    "W2_mixed": {
+      "description": "25% long prompts (2048-3072 tokens), 75% short (192-320), 256 out",
+      "bench_args": [
+        "--dataset-name",
+        "custom",
+        "--dataset-path",
+        "benchmarks/workloads/w2_mixed.jsonl",
+        "--custom-output-len",
+        "256",
+        "--skip-chat-template"
+      ]
+    }
+  },
+  "saturation_prompts": 300,
+  "rate_fractions_of_saturation": [
+    0.25,
+    0.5,
+    0.75,
+    0.9,
+    1.1
+  ],
+  "rates": {
+    "W2_mixed": null
+  },
+  "results_dir": "benchmarks/results/raw/phase4_qwen3_1p7b"
+}

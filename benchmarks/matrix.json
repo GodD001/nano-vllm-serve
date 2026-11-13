@@ -1,5 +1,5 @@
 {
-  "_status": "DRAFT for Checkpoint 4a. Rates are filled in after --find-saturation; nothing runs until approved.",
+  "_status": "APPROVED 2026-11-13 (Checkpoint 4a): W1/W2 rates as listed; W3 included with rates set by --set-rates (max saturation x rate_fractions_of_saturation, rule fixed before results); vLLM uses its default scheduler settings.",
   "model": "/workspace/hf-models/Qwen3-0.6B",
   "served_model_name": "Qwen3-0.6B",
   "port": 8000,
@@ -11,40 +11,109 @@
   "warmup_prompts": 100,
   "percentiles": "50,90,99",
   "systems": {
-    "A_prefill_first": {"kind": "nano", "args": ["--scheduler-policy", "prefill_first"]},
-    "B_decode_first": {"kind": "nano", "args": ["--scheduler-policy", "decode_first"]},
-    "C_vllm": {"kind": "vllm", "args": []}
+    "A_prefill_first": {
+      "kind": "nano",
+      "args": [
+        "--scheduler-policy",
+        "prefill_first"
+      ]
+    },
+    "B_decode_first": {
+      "kind": "nano",
+      "args": [
+        "--scheduler-policy",
+        "decode_first"
+      ]
+    },
+    "C_vllm": {
+      "kind": "vllm",
+      "args": []
+    }
   },
   "workloads": {
     "W1_short": {
       "description": "short chat-like: 256 in / 256 out (random tokens)",
-      "bench_args": ["--dataset-name", "random", "--random-input-len", "256", "--random-output-len", "256",
-                     "--random-range-ratio", "0.0"]
+      "bench_args": [
+        "--dataset-name",
+        "random",
+        "--random-input-len",
+        "256",
+        "--random-output-len",
+        "256",
+        "--random-range-ratio",
+        "0.0"
+      ]
     },
     "W2_mixed": {
       "description": "25% long prompts (2048-3072 tokens), 75% short (192-320), 256 out",
-      "bench_args": ["--dataset-name", "custom", "--dataset-path", "benchmarks/workloads/w2_mixed.jsonl",
-                     "--custom-output-len", "256", "--skip-chat-template"]
+      "bench_args": [
+        "--dataset-name",
+        "custom",
+        "--dataset-path",
+        "benchmarks/workloads/w2_mixed.jsonl",
+        "--custom-output-len",
+        "256",
+        "--skip-chat-template"
+      ]
     },
     "W3_shared_prefix": {
-      "description": "optional: 1024-token prefix shared by all requests + 128 unique tokens, 128 out",
+      "description": "1024-token prefix shared by all requests + 128 unique tokens, 128 out",
       "optional": true,
-      "bench_args": ["--dataset-name", "random", "--random-prefix-len", "1024", "--random-input-len", "128",
-                     "--random-output-len", "128", "--random-range-ratio", "0.0"]
+      "bench_args": [
+        "--dataset-name",
+        "random",
+        "--random-prefix-len",
+        "1024",
+        "--random-input-len",
+        "128",
+        "--random-output-len",
+        "128",
+        "--random-range-ratio",
+        "0.0"
+      ]
     }
   },
   "saturation_prompts": 300,
-  "rate_fractions_of_saturation": [0.25, 0.5, 0.75, 0.9, 1.1],
+  "rate_fractions_of_saturation": [
+    0.25,
+    0.5,
+    0.75,
+    0.9,
+    1.1
+  ],
   "rates": {
-    "W1_short": null,
-    "W2_mixed": null,
+    "W1_short": [
+      6,
+      12,
+      18,
+      21,
+      24
+    ],
+    "W2_mixed": [
+      2.5,
+      5,
+      7.5,
+      9,
+      10.5
+    ],
     "W3_shared_prefix": null
   },
   "knob_sweep": {
     "system": "B_decode_first",
     "workload": "W2_mixed",
-    "rates": null,
+    "rates": [
+      5,
+      9
+    ],
     "_rates": "one or two rates near saturation, chosen with the others",
-    "max_prefill_tokens_per_step": [256, 512, 1024, 2048, 4096, 16384]
-  }
+    "max_prefill_tokens_per_step": [
+      256,
+      512,
+      1024,
+      2048,
+      4096,
+      16384
+    ]
+  },
+  "_rates": "Absolute rates shared by all systems, from light load to just past saturation. Saturation (rate=inf, 300 prompts; raw/phase4/saturation.json): W1 22.4 / 22.8 / 24.0 req/s, W2 9.6 / 9.2 / 10.5 req/s for A / B / C."
 }

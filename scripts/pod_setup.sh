@@ -38,7 +38,7 @@ uv pip install -q --link-mode=copy --python /root/.venv/bin/python -e "$REPO[tes
 # venv B: vLLM (pins its own torch, so it is kept separate)
 if [ ! -x /root/.venv-vllm/bin/python ]; then
   uv venv -q --python 3.12 /root/.venv-vllm
-  uv pip install -q --link-mode=copy --python /root/.venv-vllm/bin/python "vllm==$VLLM_VERSION"
+  uv pip install -q --link-mode=copy --python /root/.venv-vllm/bin/python "vllm[bench]==$VLLM_VERSION"
   # vLLM's default sampler JIT-compiles FlashInfer kernels, which needs nvcc + ninja
   # (absent in the RunPod image). Install FlashInfer's precompiled kernels instead,
   # so vLLM runs with its default configuration.
