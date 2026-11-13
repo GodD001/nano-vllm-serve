@@ -1,9 +1,8 @@
 """Test bootstrap for CPU-only machines.
 
-`nanovllm/__init__.py` imports the full LLM (torch, triton, flash-attn, transformers).
-The scheduler / block-manager tests need none of that, so when those packages are
-missing we register minimal stand-ins *before* `nanovllm` is imported. On a machine
-with the real stack installed nothing is stubbed and the real modules are used.
+The scheduler / engine / serving tests need no GPU. If `transformers` is missing we
+register a minimal stand-in *before* `nanovllm` is imported; with the real package
+installed nothing is stubbed. GPU-only tests live in tests/gpu and skip without CUDA.
 """
 import importlib.util
 import os
@@ -25,15 +24,8 @@ if _missing("transformers"):
     stub.AutoTokenizer = type("AutoTokenizer", (), {})
     sys.modules["transformers"] = stub
 
-if any(_missing(m) for m in ("torch", "triton", "flash_attn")):
-    stub = types.ModuleType("nanovllm.llm")
-
-    class LLM:  # pragma: no cover - placeholder only
-        def __init__(self, *args, **kwargs):
-            raise RuntimeError("GPU stack (torch/triton/flash-attn) not installed")
-
-    stub.LLM = LLM
-    sys.modules["nanovllm.llm"] = stub
+# LLMEngine imports torch / ModelRunner lazily (inside __init__), so the engine, scheduler
+# and serving layer import fine without the GPU stack; only `transformers` may need a stub.
 
 
 import pytest  # noqa: E402

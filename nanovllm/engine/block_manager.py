@@ -31,6 +31,7 @@ class BlockManager:
         self.hash_to_block_id: dict[int, int] = dict()
         self.free_block_ids: deque[int] = deque(range(num_blocks))
         self.used_block_ids: set[int] = set()
+        self.num_prefix_cache_hit_blocks = 0  # cumulative, for metrics
 
     @classmethod
     def compute_hash(cls, token_ids: list[int], prefix: int = -1):
@@ -90,6 +91,7 @@ class BlockManager:
         for i in range(num_cached_blocks, seq.num_blocks):
             seq.block_table.append(self._allocate_block())
         seq.num_cached_tokens = num_cached_blocks * self.block_size
+        self.num_prefix_cache_hit_blocks += num_cached_blocks
 
     def deallocate(self, seq: Sequence):
         for block_id in reversed(seq.block_table):

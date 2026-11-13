@@ -15,6 +15,7 @@ class Scheduler:
         self.block_manager = BlockManager(config.num_kvcache_blocks, config.kvcache_block_size)
         self.waiting: deque[Sequence] = deque()
         self.running: deque[Sequence] = deque()
+        self.num_preemptions = 0  # cumulative, for metrics
 
     def is_finished(self):
         return not self.waiting and not self.running
@@ -73,12 +74,16 @@ class Scheduler:
         return scheduled_seqs, False
 
     def preempt(self, seq: Sequence):
+        self.num_preemptions += 1
         seq.status = SequenceStatus.WAITING
         seq.is_prefill = True
         self.block_manager.deallocate(seq)
         self.waiting.appendleft(seq)
 
-    def postprocess(self, seqs: list[Sequence], token_ids: list[int], is_prefill: bool):
+    def postprocess(self, seqs: list[Sequence], token_ids: list[int], is_prefill: bool) -> list[tuple[Sequence, int]]:
+        """Apply one step's sampled tokens. Returns (seq, token_id) for every sequence that
+        received a new token this step (a partial prefill chunk receives none)."""
+        outputs = []
         for seq, token_id in zip(seqs, token_ids):
             self.block_manager.hash_blocks(seq)
             seq.num_cached_tokens += seq.num_scheduled_tokens
@@ -86,7 +91,31 @@ class Scheduler:
             if is_prefill and seq.num_cached_tokens < seq.num_tokens:
                 continue
             seq.append_token(token_id)
-            if (not seq.ignore_eos and token_id == self.eos) or seq.num_completion_tokens == seq.max_tokens:
+            outputs.append((seq, token_id))
+            if (not seq.ignore_eos and token_id == self.eos) or token_id in seq.stop_token_ids:
+                seq.finish_reason = "stop"
+            elif seq.num_completion_tokens == seq.max_tokens:
+                seq.finish_reason = "length"
+            if seq.finish_reason is not None:
                 seq.status = SequenceStatus.FINISHED
                 self.block_manager.deallocate(seq)
                 self.running.remove(seq)
+        return outputs
+
+    def abort(self, seq_id: int) -> Sequence | None:
+        """Remove a sequence in any state (waiting, mid-chunked-prefill, preempted, running)
+        and free its KV blocks. Returns the aborted sequence, or None if it is not live.
+
+        Must not be called while a step is in flight (the engine thread only calls it
+        between steps)."""
+        for queue in (self.waiting, self.running):
+            for seq in queue:
+                if seq.seq_id == seq_id:
+                    queue.remove(seq)
+                    if seq.block_table:
+                        self.block_manager.deallocate(seq)
+                    seq.num_scheduled_tokens = 0
+                    seq.status = SequenceStatus.FINISHED
+                    seq.finish_reason = "abort"
+                    return seq
+        return None
