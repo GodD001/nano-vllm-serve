@@ -1,0 +1,18 @@
+{
+  "file": "benchmarks/workloads/w2_mixed.jsonl",
+  "seed": 0,
+  "num_prompts": 1000,
+  "long_fraction": 0.25,
+  "short_tokens": {
+    "min": 192,
+    "max": 320,
+    "mean": 254.60533333333333
+  },
+  "long_tokens": {
+    "min": 2065,
+    "max": 3068,
+    "mean": 2567.416
+  },
+  "tokenizer": "/workspace/hf-models/Qwen3-0.6B",
+  "sha256": "adc041656b6a591e856eda5f952c4bbf3d99f8fa21d9d3747ca936eecad9c310"
+}
