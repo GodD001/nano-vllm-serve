@@ -15,7 +15,9 @@ class Sequence:
     block_size = 256
     counter = count()
 
-    def __init__(self, token_ids: list[int], sampling_params = SamplingParams()):
+    def __init__(self, token_ids: list[int], sampling_params: SamplingParams | None = None):
+        if sampling_params is None:
+            sampling_params = SamplingParams()
         self.seq_id = next(Sequence.counter)
         self.status = SequenceStatus.WAITING
         self.token_ids = copy(token_ids)
@@ -29,6 +31,13 @@ class Sequence:
         self.temperature = sampling_params.temperature
         self.max_tokens = sampling_params.max_tokens
         self.ignore_eos = sampling_params.ignore_eos
+        # nano-vllm-serve additions (rank-0 only; not sent to TP workers by __getstate__)
+        self.greedy = sampling_params.greedy
+        self.top_k = sampling_params.top_k
+        self.top_p = sampling_params.top_p
+        self.stop_token_ids = frozenset(sampling_params.stop_token_ids)
+        self.finish_reason: str | None = None  # "stop" | "length" | "abort"
+        self.first_scheduled_time: float | None = None
 
     def __len__(self):
         return self.num_tokens

@@ -7,7 +7,7 @@ from multiprocessing.shared_memory import SharedMemory
 from nanovllm.config import Config
 from nanovllm.engine.sequence import Sequence
 from nanovllm.models.qwen3 import Qwen3ForCausalLM
-from nanovllm.layers.sampler import Sampler
+from nanovllm.layers.sampler import Sampler, SamplingTensors
 from nanovllm.utils.context import set_context, get_context, reset_context
 from nanovllm.utils.loader import load_model
 
@@ -187,10 +187,24 @@ class ModelRunner:
         set_context(False, slot_mapping=slot_mapping, context_lens=context_lens, block_tables=block_tables)
         return input_ids, positions
 
-    def prepare_sample(self, seqs: list[Sequence]):
-        temperatures = [seq.temperature for seq in seqs]
-        temperatures = torch.tensor(temperatures, dtype=torch.float32, pin_memory=True).cuda(non_blocking=True)
-        return temperatures
+    def prepare_sample(self, seqs: list[Sequence]) -> SamplingTensors:
+        def to_gpu(values, dtype):
+            return torch.tensor(values, dtype=dtype, pin_memory=True).cuda(non_blocking=True)
+
+        greedy = [seq.greedy for seq in seqs]
+        if all(greedy):
+            return SamplingTensors(temperatures=None, all_greedy=True)
+        any_greedy = any(greedy)
+        temperatures = [1.0 if g else seq.temperature for g, seq in zip(greedy, seqs)]
+        sampling = SamplingTensors(temperatures=to_gpu(temperatures, torch.float32))
+        if any_greedy:
+            sampling.greedy = to_gpu(greedy, torch.bool)
+        if any(seq.top_k != -1 for seq in seqs):
+            vocab_size = self.config.hf_config.vocab_size
+            sampling.top_ks = to_gpu([seq.top_k if seq.top_k != -1 else vocab_size for seq in seqs], torch.int64)
+        if any(seq.top_p < 1.0 for seq in seqs):
+            sampling.top_ps = to_gpu([seq.top_p for seq in seqs], torch.float32)
+        return sampling
 
     @torch.inference_mode()
     def run_model(self, input_ids: torch.Tensor, positions: torch.Tensor, is_prefill: bool):
@@ -213,9 +227,9 @@ class ModelRunner:
 
     def run(self, seqs: list[Sequence], is_prefill: bool) -> list[int]:
         input_ids, positions = self.prepare_prefill(seqs) if is_prefill else self.prepare_decode(seqs)
-        temperatures = self.prepare_sample(seqs) if self.rank == 0 else None
+        sampling = self.prepare_sample(seqs) if self.rank == 0 else None
         logits = self.run_model(input_ids, positions, is_prefill)
-        token_ids = self.sampler(logits, temperatures).tolist() if self.rank == 0 else None
+        token_ids = self.sampler(logits, sampling).tolist() if self.rank == 0 else None
         reset_context()
         return token_ids
 
