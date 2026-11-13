@@ -16,8 +16,12 @@ class Config:
     eos: int = -1
     kvcache_block_size: int = 256
     num_kvcache_blocks: int = -1
+    # nano-vllm-serve: "prefill_first" is upstream's policy (default); "decode_first" is Phase 3.
+    scheduler_policy: str = "prefill_first"
 
     def __post_init__(self):
+        if self.scheduler_policy != "prefill_first":
+            raise NotImplementedError(f"scheduler_policy={self.scheduler_policy!r} is not implemented yet")
         assert os.path.isdir(self.model)
         assert self.kvcache_block_size % 256 == 0
         assert 1 <= self.tensor_parallel_size <= 8
