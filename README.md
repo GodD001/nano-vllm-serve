@@ -67,4 +67,4 @@ Single GPU for the new scheduler · Qwen3 models only · results are from small 
 
 ## License
 
-MIT. Upstream copyright © Xingkai Yu; see [`LICENSE`](LICENSE).
+MIT. Upstream © 2025 Xingkai Yu; additions © 2026 Chendi Li; see [`LICENSE`](LICENSE).
